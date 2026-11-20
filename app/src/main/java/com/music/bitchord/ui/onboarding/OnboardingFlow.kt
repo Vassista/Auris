@@ -48,6 +48,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -264,23 +266,34 @@ fun SetupWizard(
         // The page behind, dimmed. Deliberately not tappable: a flow that can be
         // dismissed by tapping past it makes its own Skip button a lie.
         //
-        // The dim is a layer property rather than a colour: reading the
-        // reveal's value while composing invalidated this whole composable —
-        // the sheet, the rail, every page in it — sixty times a second, all
-        // of it to change the shade of a scrim. Read inside the layer block,
-        // only the layer is re-applied.
+        // The reveal is read in the draw phase, never while composing:
+        // reading it in composition invalidated this whole composable — the
+        // sheet, the rail, every page in it — sixty times a second, all of it
+        // to change the shade of a scrim. Read while drawing, only this box
+        // is redrawn.
+        //
+        // Drawn straight, not faded through a layer, and only where it shows.
+        // The layer was a full-screen offscreen pass composited on every
+        // frame of every page change, and the sheet is opaque: below its top
+        // corners nothing of the scrim is ever seen. A solid black rect at
+        // alpha a is the same pixels as that rect in a layer at alpha a.
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = 0.52f * reveal.value }
-                .background(Color.Black)
+                .drawBehind {
+                    val dim = 0.52f * reveal.value
+                    if (dim <= 0f) return@drawBehind
+                    val sheetTop = (1f - reveal.value) * size.height * SHEET_TRAVEL
+                    val shown = (sheetTop + SetupSheetCornerRadius.toPx() + 1f).coerceAtMost(size.height)
+                    drawRect(Color.Black, alpha = dim, size = Size(size.width, shown))
+                }
                 .clickable(enabled = false, onClick = {}),
         )
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = (1f - reveal.value) * size.height * 1.12f }
-                .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp))
+                .graphicsLayer { translationY = (1f - reveal.value) * size.height * SHEET_TRAVEL }
+                .clip(RoundedCornerShape(topStart = SetupSheetCornerRadius, topEnd = SetupSheetCornerRadius))
                 .background(Onb.Surface.copy(alpha = 0.93f)),
         ) {
             MeshGradientBackground(
@@ -439,6 +452,16 @@ fun SetupWizard(
 
 /** Which service's own sign-in page is open over the flow. */
 private enum class SignIn { YOUTUBE, SPOTIFY }
+
+/**
+ * The sheet's top corners. Below them the sheet covers the window edge to
+ * edge, opaque, which is what lets the scrim and the app behind be drawn
+ * into this strip alone once it is up.
+ */
+internal val SetupSheetCornerRadius = 34.dp
+
+/** How far below the window the sheet starts, as a share of its height. */
+private const val SHEET_TRAVEL = 1.12f
 
 private const val SHEET_AFTER_BONES_MS = 220L
 private const val RESTART_GRACE_MS = 350L

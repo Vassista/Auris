@@ -74,6 +74,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
+import com.music.bitchord.ui.onboarding.SetupSheetCornerRadius
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -641,6 +643,26 @@ class MainActivity : AppCompatActivity() {
                     Box(
                         Modifier
                             .fillMaxSize()
+                            // Once the sheet is all the way up, it covers every
+                            // pixel of the app but the two slivers beside its
+                            // rounded top corners, and it is opaque — so the
+                            // app is drawn only into that strip. Without the
+                            // clip the whole library was composited under the
+                            // sheet on every frame of every page change: a
+                            // full-screen pass, for nothing anybody can see,
+                            // on the frames the GPU had least room for. Only
+                            // while settled: the reported reveal can trail the
+                            // sheet's own by a frame, and a clip off a stale
+                            // value mid-motion would cut into what shows.
+                            .drawWithContent {
+                                if (showOnboarding && onboardingReveal >= 1f) {
+                                    clipRect(bottom = SetupSheetCornerRadius.toPx() + 1f) {
+                                        this@drawWithContent.drawContent()
+                                    }
+                                } else {
+                                    drawContent()
+                                }
+                            }
                             .graphicsLayer {
                                 val p = onboardingReveal
                                 val scale = 1f - 0.06f * p
