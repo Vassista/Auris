@@ -294,7 +294,16 @@ fun SetupWizard(
                 .fillMaxSize()
                 .graphicsLayer { translationY = (1f - reveal.value) * size.height * SHEET_TRAVEL }
                 .clip(RoundedCornerShape(topStart = SetupSheetCornerRadius, topEnd = SetupSheetCornerRadius))
-                .background(Onb.Surface.copy(alpha = 0.93f)),
+                // The sheet's own fill, under the mesh. The mesh is opaque and
+                // fills the sheet, so the fill only ever shows where the two
+                // are blended together: the anti-aliased rims of the rounded
+                // top corners. It is painted into that strip and nowhere else
+                // — the same pixels, without a full-screen pass under the
+                // mesh on every frame.
+                .drawBehind {
+                    val strip = (SetupSheetCornerRadius.toPx() + 1f).coerceAtMost(size.height)
+                    drawRect(SheetFill, size = Size(size.width, strip))
+                },
         ) {
             MeshGradientBackground(
                 palette = demoPalette,
@@ -459,6 +468,8 @@ private enum class SignIn { YOUTUBE, SPOTIFY }
  * into this strip alone once it is up.
  */
 internal val SetupSheetCornerRadius = 34.dp
+
+private val SheetFill = Onb.Surface.copy(alpha = 0.93f)
 
 /** How far below the window the sheet starts, as a share of its height. */
 private const val SHEET_TRAVEL = 1.12f
