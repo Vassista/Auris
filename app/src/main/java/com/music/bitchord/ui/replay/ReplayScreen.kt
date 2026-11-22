@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -62,6 +64,7 @@ import com.music.bitchord.ui.components.ShelfRow
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
+import com.music.bitchord.ui.replay.year.rememberYearStoryOffer
 import com.music.bitchord.ui.theme.AccentRed
 
 /** Whether the Replay page is being shown in dark mode (vs light). */
@@ -108,8 +111,13 @@ fun ReplayScreen(
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
     landingPage: ReplayStoryPage = ReplayStoryPage.INTRO,
+    /** Opens the Replay year story for the year given; null leaves the row off. */
+    onOpenYearStory: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    // Which year's story the row offers: only a listing of the month files,
+    // nothing of the story itself, which is read when it is opened.
+    val storyYear = if (onOpenYearStory != null) rememberYearStoryOffer() else null
     val summary = state.summary
     val leadArtwork = summary?.songs?.firstOrNull()?.song?.thumbnailUrl
     val palette = rememberArtworkColors(leadArtwork)
@@ -182,8 +190,25 @@ fun ReplayScreen(
                         )
                     }
                     item("open") {
-                        ReplayActionRow(BitChordIcons.Play, stringResource(R.string.play_your_replay), dark) {
+                        ReplayActionRow(
+                            BitChordIcons.Play,
+                            stringResource(R.string.play_your_replay),
+                            dark,
+                            // The year story's row sits close under it, as one group.
+                            bottomPadding = if (storyYear != null && onOpenYearStory != null) 8.dp else 18.dp,
+                        ) {
                             onOpenStory(ReplayStoryPage.INTRO)
+                        }
+                    }
+                    if (storyYear != null && onOpenYearStory != null) {
+                        item("year-story") {
+                            ReplayActionRow(
+                                icon = Icons.Rounded.AutoAwesome,
+                                label = stringResource(R.string.replay_year_story_title, storyYear.toString()),
+                                subtitle = stringResource(R.string.replay_year_story_subtitle),
+                                dark = dark,
+                                topPadding = 0.dp,
+                            ) { onOpenYearStory(storyYear) }
                         }
                     }
 
@@ -241,7 +266,7 @@ fun ReplayScreen(
                             Icons.Rounded.IosShare,
                             stringResource(R.string.share_my_replay),
                             dark,
-                            onShare,
+                            onClick = onShare,
                         )
                     }
                 }
@@ -394,11 +419,20 @@ private fun replayChartIndex(summary: ReplaySummary, page: ReplayStoryPage): Int
  * it was the loudest thing there and read like one.
  */
 @Composable
-private fun ReplayActionRow(icon: ImageVector, label: String, dark: Boolean, onClick: () -> Unit) {
+private fun ReplayActionRow(
+    icon: ImageVector,
+    label: String,
+    dark: Boolean,
+    subtitle: String? = null,
+    topPadding: Dp = 18.dp,
+    bottomPadding: Dp = 18.dp,
+    onClick: () -> Unit,
+) {
     val textColor = if (dark) Color.White else Color.Black
     Row(
         Modifier
-            .padding(horizontal = PAGE_GUTTER + 4.dp, vertical = 18.dp)
+            .padding(horizontal = PAGE_GUTTER + 4.dp)
+            .padding(top = topPadding, bottom = bottomPadding)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(textColor.copy(alpha = 0.12f))
@@ -413,12 +447,27 @@ private fun ReplayActionRow(icon: ImageVector, label: String, dark: Boolean, onC
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(12.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = textColor,
-            modifier = Modifier.weight(1f),
-        )
+        if (subtitle == null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = textColor,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor.copy(alpha = 0.6f),
+                )
+            }
+        }
         Icon(
             imageVector = BitChordIcons.ChevronRight,
             contentDescription = null,

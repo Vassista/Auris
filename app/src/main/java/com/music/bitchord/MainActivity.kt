@@ -398,6 +398,7 @@ import com.music.bitchord.ui.replay.ReplayShareSheet
 import com.music.bitchord.ui.replay.ReplayStories
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import com.music.bitchord.ui.replay.rememberReplayState
+import com.music.bitchord.ui.replay.year.ReplayYearHost
 import com.music.bitchord.ui.theme.BitChordTheme
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
@@ -1003,6 +1004,7 @@ internal fun BitChordApp(
         nav.showReplay = false
         nav.replayStory = null
         nav.showReplayShare = false
+        nav.replayYearStory = null
         nav.showAccountScrobbling = false
         nav.showSources = false
         nav.showEqualizer = false
@@ -1130,7 +1132,10 @@ internal fun BitChordApp(
     val replayOnScreen = rootPageKey(
         nav, sheets, podcastUi.showContinueListening, detail, detailStackIds.size,
     ) == "replay"
-    SystemBarIcons(dark = !darkTheme && !showNowPlaying && !replayOnScreen && nav.replayStory == null)
+    SystemBarIcons(
+        dark = !darkTheme && !showNowPlaying && !replayOnScreen && nav.replayStory == null &&
+            nav.replayYearStory == null,
+    )
 
     // Read when a page is opened, never in composition: see [RootNav.replayDepth].
     // Off the view model's flow rather than [detailStackState]: that one is
@@ -5111,6 +5116,14 @@ internal fun BitChordApp(
             }
         }
 
+        // ---- Replay year story ----
+        // Mounted over the window like the Replay story, for the same reason.
+        ReplayYearHost(
+            year = nav.replayYearStory,
+            onClose = { nav.replayYearStory = null },
+            mainPlayer = controller,
+        )
+
         // ---- Share the Replay ----
         // Opens at its own height, which is the picture and its two buttons:
         // there is no half-open stop to leave the buttons below the fold.
@@ -5432,6 +5445,7 @@ private fun RootPage(
             holder = account?.name.orEmpty(),
             onPeriodChange = pageActions.setReplayPeriod,
             onOpenStory = { nav.replayStory = it },
+            onOpenYearStory = { nav.replayYearStory = it },
             // A track tapped on a chart is one the user already
             // knows they like, so it starts a station off itself
             // rather than queueing the chart it was on — the
@@ -8037,6 +8051,8 @@ internal class RootNav {
     var replayLandingPage by mutableStateOf(ReplayStoryPage.INTRO)
     var replayStory by mutableStateOf<ReplayStoryPage?>(null)
     var showReplayShare by mutableStateOf(false)
+    /** The year whose Replay year story is open, or null. */
+    var replayYearStory by mutableStateOf<Int?>(null)
     // Track which sub-screen was opened from Settings so AnimatedContent keeps
     // SettingsSheet mounted underneath and back navigation restores scroll.
     // null = no sub-screen overlay; non-null = that key is rendered as overlay.
@@ -8097,6 +8113,7 @@ internal class RootNav {
             showReplay = false
             replayStory = null
             showReplayShare = false
+            replayYearStory = null
         }
         showSettings = false
         settingsCategory = null
@@ -8132,6 +8149,7 @@ internal class RootNav {
                     it.replayDepth,
                     it.audiobooksDepth,
                     it.itunesPodcastDepth,
+                    it.replayYearStory,
                 )
             },
             restore = { values ->
@@ -8161,6 +8179,7 @@ internal class RootNav {
                     (values.getOrNull(18) as? Int)?.let { replayDepth = it }
                     (values.getOrNull(19) as? Int)?.let { audiobooksDepth = it }
                     (values.getOrNull(20) as? Int)?.let { itunesPodcastDepth = it }
+                    replayYearStory = values.getOrNull(21) as? Int
                 }
             },
         )

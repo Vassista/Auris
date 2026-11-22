@@ -99,7 +99,7 @@ class RootNavSaverTest {
             itunesPodcastId = "x"
         }
         val saved = with(RootNav.Saver) { scope.save(nav) } as List<*>
-        assertEquals(21, saved.size)
+        assertEquals(22, saved.size)
         saved.forEach { value ->
             assertTrue(
                 "unexpected ${value?.javaClass}",
@@ -118,6 +118,14 @@ class RootNavSaverTest {
         assertEquals(2, restored.audiobooksDepth)
         assertEquals(3, restored.itunesPodcastDepth)
         assertEquals(Int.MAX_VALUE, roundTrip(RootNav()).replayDepth)
+    }
+
+    @Test fun `an open year story survives a round trip`() {
+        assertEquals(2026, roundTrip(RootNav().apply { replayYearStory = 2026 }).replayYearStory)
+        assertEquals(null, roundTrip(RootNav()).replayYearStory)
+        // A list saved before the year story existed restores with it closed.
+        val saved = with(RootNav.Saver) { scope.save(RootNav().apply { replayYearStory = 2026 }) } as List<*>
+        assertEquals(null, RootNav.Saver.restore(saved.take(21))!!.replayYearStory)
     }
 
     @Test fun `a list saved before the depths were kept still restores`() {

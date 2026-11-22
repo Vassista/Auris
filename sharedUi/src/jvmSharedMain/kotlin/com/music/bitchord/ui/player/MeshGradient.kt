@@ -235,22 +235,7 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): 
 
     LaunchedEffect(imageUrl) {
         if (imageUrl == null) return@LaunchedEffect
-        val request = ImageRequest.Builder(context)
-            .data(imageUrl)
-            .size(128) // palette quality is fine at thumbnail size, and it's fast
-            .forPixelAccess() // Palette needs pixel access
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@LaunchedEffect
-        // Off the main thread, like the frame path below.
-        //
-        // The swatch pass reads every pixel of the artwork and sorts the
-        // result, and doing that on the main thread is a dropped frame on
-        // the screen that is asking for it — the onboarding opens onto a
-        // screen that loads a cover, and the cover's palette is the first
-        // thing it wants.
-        val colors = withContext(Dispatchers.Default) { paletteOf(bitmap) }
-        palette = MeshPalette(colors)
+        artworkPalette(context, imageUrl)?.let { palette = it }
     }
 
     LaunchedEffect(canvasFrame) {
@@ -264,6 +249,33 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): 
     }
     return palette
 }
+
+/**
+ * [imageUrl]'s mesh colours, as [rememberArtworkColors] works them out, for a
+ * caller that wants several worked out ahead of time (the Replay year story,
+ * which colours each card from its own song). Null when the artwork can't be
+ * loaded.
+ */
+suspend fun artworkPalette(context: coil3.PlatformContext, imageUrl: String): MeshPalette? {
+    val request = ImageRequest.Builder(context)
+        .data(imageUrl)
+        .size(128) // palette quality is fine at thumbnail size, and it's fast
+        .forPixelAccess() // Palette needs pixel access
+        .build()
+    val result = SingletonImageLoader.get(context).execute(request)
+    val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return null
+    // Off the main thread, like the frame path in [rememberArtworkColors].
+    //
+    // The swatch pass reads every pixel of the artwork and sorts the
+    // result, and doing that on the main thread is a dropped frame on
+    // the screen that is asking for it — the onboarding opens onto a
+    // screen that loads a cover, and the cover's palette is the first
+    // thing it wants.
+    return MeshPalette(withContext(Dispatchers.Default) { paletteOf(bitmap) })
+}
+
+/** The palette [rememberArtworkColors] shows before (or without) any artwork. */
+val FallbackMeshPalette: MeshPalette = MeshPalette(FallbackColors)
 
 /**
  * How far the blobs travel in one settle. A shade under half a turn: enough

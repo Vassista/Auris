@@ -1624,6 +1624,33 @@ object AudioCache {
         upstreamFactory = factory
     }
 
+    /**
+     * A reader over [videoId]'s YouTube Opus for the Replay year story's
+     * clips, and the URI to open it with. Null until the cache and the
+     * player's upstream exist.
+     *
+     * Always YouTube's Opus, whatever playback would use, and under the
+     * analyser's own key ([AutomixAnalysisSource.analysisCacheKey]) rather
+     * than the player's: that entry only ever holds that one encoding, so a
+     * clip read into it can't splice a second container into a file the
+     * player is filling, and what a clip fetches is a head start for the
+     * analyser rather than a copy of its own. The URI carries the analysis
+     * marker, so a gap the cache doesn't hold resolves straight to YouTube
+     * (no source race, no pin, no upgrade) and the bytes are tagged as a
+     * non-playback read.
+     */
+    fun storyClipSource(videoId: String): Pair<DataSource.Factory, Uri>? {
+        if (!::cache.isInitialized) return null
+        val upstream = upstreamFactory ?: return null
+        val key = AutomixAnalysisSource.analysisCacheKey(videoId)
+        val factory = CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstream)
+            .setCacheKeyFactory { key }
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        return factory to Uri.parse(AutomixAnalysisSource.opusUri(videoId))
+    }
+
     private var job: Job? = null
     private var pendingQueue: List<String> = emptyList()
 
