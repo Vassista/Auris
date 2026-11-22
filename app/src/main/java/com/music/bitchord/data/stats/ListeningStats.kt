@@ -481,7 +481,10 @@ object ListeningStats {
             }
             repeat(24) { hours[it] += bucket.hours.getOrElse(it) { 0L } }
             bucket.days.forEach { (day, ms) ->
-                val date = "${bucket.month}-%02d".format(day)
+                // In ASCII digits whatever the app's language: this is a key,
+                // parsed back as an ISO date, and an Arabic or Persian locale
+                // would otherwise write "٠٥" and the day would never parse.
+                val date = "${bucket.month}-%02d".format(Locale.ROOT, day)
                 days[date] = (days[date] ?: 0L) + ms
             }
             if (earliest == null || bucket.month < earliest!!) earliest = bucket.month
